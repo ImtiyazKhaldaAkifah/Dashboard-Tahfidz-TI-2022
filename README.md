@@ -34,12 +34,9 @@ Data mentah absensi diolah (pre-processing) dan disaggregation menjadi struktur 
 6.  **UI Modern & Responsif:** Tampilan antarmuka yang bersih menggunakan Glassmorphism style.
 
 ## 👨‍💻 Cara Menjalankan Secara Lokal
-1.  Clone repositori ini:
-    ```bash
-    git clone https://github.com/usernamemu/nama-repositori-kalian.git
-    ```
+1.  Clone repositori ini.
 2.  Masuk ke direktori proyek.
 3.  Buka file `index.html` langsung di browser Anda.
 
 ---
-Dibuat sebagai tugas mata kuliah Sains Data oleh: **[Nama Kamu/NIM]**
+Dibuat sebagai tugas mata kuliah Sains Data oleh: **Imtiyaz Khalda Akifah / 452024618088]**
