@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Bar Chart Dashboard - Tahfidz TI 2022</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Vanilla Tilt JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body { 
+      font-family: 'Plus Jakarta Sans', sans-serif; 
+      background-color: #81827d;
+      overflow-x: hidden;
+    }
+    
+    /* FOREGROUND CANVAS OVERLAY */
+    #fg-cursor-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    #three-container {
+      width: 100%;
+      height: 480px;
+      position: relative;
+      border-radius: 1.25rem;
+      overflow: hidden;
+    }
+
+    #tooltip3d {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 50;
+    }
+
+    .tilt-card {
+      transform-style: preserve-3d;
+      transition: box-shadow 0.3s ease;
+      position: relative;
+    }
+    .tilt-card:hover {
+      box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.08);
+    }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen p-4 md:p-8 relative">
+
+  <!-- 1. FOREGROUND CURSOR OVERLAY CANVAS -->
+  <canvas id="fg-cursor-canvas"></canvas>
+
+  <!-- Tooltip 3D Bar Chart -->
+  <div id="tooltip3d" class="bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-slate-200 text-xs min-w-[200px]">
+    <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
+      <span id="tooltipSem" class="font-extrabold text-slate-900 text-sm">Sem 1</span>
+      <span id="tooltipBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">Hadir</span>
+    </div>
+    <div class="space-y-1.5 text-slate-600">
+      <div class="flex justify-between"><span>Jumlah Mahasiswa:</span> <span id="tooltipVal" class="font-bold text-slate-900">0 orang</span></div>
+      <div class="flex justify-between"><span>Total Semester Ini:</span> <span id="tooltipTotal" class="font-bold text-slate-700">0 orang</span></div>
+      <div class="flex justify-between border-t border-slate-100 pt-1.5"><span>Proporsi:</span> <span id="tooltipPct" class="font-extrabold text-sky-600 text-sm">0%</span></div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto space-y-6 relative z-10">
+
+    <!-- Header Section -->
+    <header class="tilt-card bg-white/90 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4" data-tilt data-tilt-max="2">
+      <div>
+        <div class="flex items-center gap-2 text-emerald-600 font-semibold text-xs mb-1">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+          <span>Data Tahfidz Prodi Teknik Informatika 2022</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+          Dashboard Analisis Absensi Karantina Tahfidz
+        </h1>
+      </div>
+
+      <!-- Filter Dropdown -->
+      <div class="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+        <i data-lucide="filter" class="w-4 h-4 text-emerald-600"></i>
+        <label for="semesterFilter" class="text-xs font-medium text-slate-700">Filter Semester:</label>
+        <select id="semesterFilter" onchange="updateDashboard(this.value)" class="bg-white text-slate-800 text-xs rounded-lg px-3 py-1.5 border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold">
+          <option value="ALL">Semua Semester</option>
+          <option value="Sem 1">Semester 1</option>
+          <option value="Sem 3">Semester 3</option>
+          <option value="Sem 5">Semester 5</option>
+          <option value="Sem 7">Semester 7</option>
+          <option value="Sem 9">Semester 9</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- KPI Summary Cards -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="tilt-card bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-slate-200/80 shadow-sm" data-tilt data-tilt-max="5">
+        <span class="text-slate-400 text-xs font-semibold uppercase">Total Mahasiswa</span>
+        <div id="kpiTotal" class="text-3xl font-extrabold text-slate-900 mt-1">141</div>
+        <span class="text-[11px] text-slate-400">Terdaftar di program</span>
+      </div>
+      <div class="tilt-card bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-slate-200/80 shadow-sm" data-tilt data-tilt-max="5">
+        <span class="text-slate-400 text-xs font-semibold uppercase">Total Hadir</span>
+        <div id="kpiHadir" class="text-3xl font-extrabold text-emerald-600 mt-1">67</div>
+        <span id="kpiHadirPct" class="text-[11px] text-emerald-600 font-medium">47.5% Partisipasi</span>
+      </div>
+      <div class="tilt-card bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-slate-200/80 shadow-sm" data-tilt data-tilt-max="5">
+        <span class="text-slate-400 text-xs font-semibold uppercase">Total Absen</span>
+        <div id="kpiAbsen" class="text-3xl font-extrabold text-rose-600 mt-1">74</div>
+        <span id="kpiAbsenPct" class="text-[11px] text-rose-600 font-medium">52.5% Ketidakhadiran</span>
+      </div>
+      <div class="tilt-card bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-slate-200/80 shadow-sm" data-tilt data-tilt-max="5">
+        <span class="text-slate-400 text-xs font-semibold uppercase">Tingkat Kehadiran</span>
+        <div id="kpiAvg" class="text-3xl font-extrabold text-sky-600 mt-1">47.5%</div>
+        <span class="text-[11px] text-slate-400">Rata-rata kumulatif</span>
+      </div>
+    </section>
+
+    <!-- MAIN 3D VISUALIZER AREA (3D BAR CHART) -->
+    <section class="bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-slate-200/80 shadow-sm relative">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+        <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+          <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-600"></i>
+          Peta Grafik Balok 3D Perbandingan Hadir vs Absen
+        </h2>
+        <div class="flex items-center gap-4 text-xs">
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-md bg-emerald-500 inline-block"></span> Balok Hadir</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-md bg-rose-500 inline-block"></span> Balok Absen</span>
+          <span class="text-[11px] text-slate-500 bg-sky-50 px-3 py-1 rounded-full border border-sky-200 font-medium">
+            💡 Sorot balok 3D untuk melihat persentase
+          </span>
+        </div>
+      </div>
+
+      <!-- Canvas Container -->
+      <div id="three-container" class="bg-gradient-to-b from-slate-50 to-slate-100 border border-slate-200"></div>
+    </section>
+
+    <!-- Data Table Section -->
+    <section class="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+      <h2 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <i data-lucide="table" class="w-4 h-4 text-emerald-600"></i>
+        Tabel Rincian Rekapitulasi Data
+      </h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-600">
+          <thead class="bg-slate-50 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-200">
+            <tr>
+              <th class="p-3">Semester</th>
+              <th class="p-3 text-center">Total Mahasiswa</th>
+              <th class="p-3 text-center">Hadir</th>
+              <th class="p-3 text-center">Absen</th>
+              <th class="p-3 text-center">% Kehadiran</th>
+              <th class="p-3 text-center">Kategori</th>
+            </tr>
+          </thead>
+          <tbody id="dataTableBody" class="divide-y divide-slate-100 font-medium"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    const rawData = [
+      { semester: "Sem 1", total: 51, hadir: 46, absen: 5 },
+      { semester: "Sem 3", total: 24, hadir: 14, absen: 10 },
+      { semester: "Sem 5", total: 29, hadir: 2, absen: 27 },
+      { semester: "Sem 7", total: 29, hadir: 4, absen: 25 },
+      { semester: "Sem 9", total: 8, hadir: 1, absen: 7 }
+    ];
+
+    let scene, camera, renderer, controls;
+    let barGroup = new THREE.Group();
+    let raycaster = new THREE.Raycaster();
+    let mouse = new THREE.Vector2();
+    let intersectedBar = null;
+    let barObjects = [];
+
+    window.onload = function() {
+      lucide.createIcons();
+      init3DScene();
+      initActiveCursorEffect();
+      VanillaTilt.init(document.querySelectorAll(".tilt-card"));
+      renderTable("ALL");
+    };
+
+    // --- ACTIVE FOREGROUND CURSOR PARTICLES ---
+    function initActiveCursorEffect() {
+      const canvas = document.getElementById('fg-cursor-canvas');
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      let mousePos = { x: -100, y: -100 };
+      let lastMousePos = { x: -100, y: -100 };
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      window.addEventListener('mousemove', (e) => {
+        mousePos.x = e.clientX;
+        mousePos.y = e.clientY;
+
+        const dx = mousePos.x - lastMousePos.x;
+        const dy = mousePos.y - lastMousePos.y;
+        const speed = Math.sqrt(dx * dx + dy * dy);
+
+        const spawnCount = Math.min(Math.floor(speed / 3) + 1, 5);
+        for (let i = 0; i < spawnCount; i++) {
+          particles.push({
+            x: mousePos.x + (Math.random() - 0.5) * 12,
+            y: mousePos.y + (Math.random() - 0.5) * 12,
+            size: Math.random() * 4 + 2,
+            vx: -dx * 0.1 + (Math.random() - 0.5) * 1.5,
+            vy: -dy * 0.1 + (Math.random() - 0.5) * 1.5,
+            color: [' #e9f905 ', '#000000', '#f43f5e', '#3b82f6'][Math.floor(Math.random() * 4)],
+            alpha: 1
+          });
+        }
+        lastMousePos = { x: mousePos.x, y: mousePos.y };
+      });
+
+      window.addEventListener('click', (e) => {
+        for (let i = 0; i < 20; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const force = Math.random() * 6 + 2;
+          particles.push({
+            x: e.clientX,
+            y: e.clientY,
+            size: Math.random() * 6 + 3,
+            vx: Math.cos(angle) * force,
+            vy: Math.sin(angle) * force,
+            color: '#10b981',
+            alpha: 1
+          });
+        }
+      });
+
+      function renderCursorParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (mousePos.x > 0) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(mousePos.x, mousePos.y, 16, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(mousePos.x, mousePos.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#10b981';
+          ctx.fill();
+          ctx.restore();
+        }
+
+        for (let i = 0; i < particles.length; i++) {
+          let p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.alpha -= 0.025;
+
+          ctx.save();
+          ctx.globalAlpha = Math.max(p.alpha, 0);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+
+          for (let j = i + 1; j < particles.length; j++) {
+            let p2 = particles[j];
+            let dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+            if (dist < 40) {
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(p2.x, p2.y);
+              ctx.strokeStyle = p.color;
+              ctx.globalAlpha = (1 - dist / 40) * p.alpha * 0.4;
+              ctx.lineWidth = 1;
+              ctx.stroke();
+            }
+          }
+
+          ctx.restore();
+
+          if (p.alpha <= 0) {
+            particles.splice(i, 1);
+            i--;
+          }
+        }
+
+        requestAnimationFrame(renderCursorParticles);
+      }
+      renderCursorParticles();
+    }
+
+    // --- THREE.JS 3D BAR CHART SETUP ---
+    function init3DScene() {
+      const container = document.getElementById('three-container');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf8fafc);
+
+      camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
+      camera.position.set(0, 8, 16);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2.2;
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+      dirLight.position.set(5, 12, 8);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      const grid = new THREE.GridHelper(22, 22, 0x94a3b8, 0xe2e8f0);
+      grid.position.y = -0.01;
+      scene.add(grid);
+
+      build3DBarChart();
+      scene.add(barGroup);
+
+      container.addEventListener('mousemove', onMouseMove, false);
+      window.addEventListener('resize', onWindowResize, false);
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+
+        if (!intersectedBar) {
+          barGroup.rotation.y += 0.0012;
+        }
+
+        renderer.render(scene, camera);
+      }
+      animate();
+    }
+
+    // MEMBANGUN GRAFIK BALOK 3D
+    function build3DBarChart() {
+      while(barGroup.children.length > 0) barGroup.remove(barGroup.children[0]);
+      barObjects = [];
+
+      const spacing = 2.6;
+      const startX = -((rawData.length - 1) * spacing) / 2;
+      const maxHeight = 5.0; // Tinggi maksimum balok (100%)
+
+      rawData.forEach((d, index) => {
+        const posX = startX + index * spacing;
+        const hadirPct = (d.hadir / d.total);
+        const absenPct = (d.absen / d.total);
+
+        const barWidth = 0.75;
+        const barDepth = 0.75;
+
+        // Group per Semester
+        const semGroup = new THREE.Group();
+        semGroup.position.set(posX, 0, 0);
+
+        // 1. BALOK HADIR (Emerald Green)
+        const hadirH = Math.max(hadirPct * maxHeight, 0.05);
+        const hadirGeo = new THREE.BoxGeometry(barWidth, hadirH, barDepth);
+        const hadirMat = new THREE.MeshStandardMaterial({ 
+          color: 0x10b981, roughness: 0.2, metalness: 0.1, emissive: 0x047857, emissiveIntensity: 0.15 
+        });
+        const hadirMesh = new THREE.Mesh(hadirGeo, hadirMat);
+        hadirMesh.position.set(-0.45, hadirH / 2, 0); // Posisikan di atas tanah
+        hadirMesh.castShadow = true;
+        hadirMesh.receiveShadow = true;
+
+        hadirMesh.userData = { 
+          ...d, type: 'Hadir', val: d.hadir, pct: (hadirPct * 100).toFixed(1),
+          baseY: hadirH / 2, baseScaleY: 1
+        };
+
+        semGroup.add(hadirMesh);
+        barObjects.push(hadirMesh);
+
+        // 2. BALOK ABSEN (Rose Red)
+        const absenH = Math.max(absenPct * maxHeight, 0.05);
+        const absenGeo = new THREE.BoxGeometry(barWidth, absenH, barDepth);
+        const absenMat = new THREE.MeshStandardMaterial({ 
+          color: 0xf43f5e, roughness: 0.2, metalness: 0.1, emissive: 0xb91c1c, emissiveIntensity: 0.15 
+        });
+        const absenMesh = new THREE.Mesh(absenGeo, absenMat);
+        absenMesh.position.set(0.45, absenH / 2, 0);
+        absenMesh.castShadow = true;
+        absenMesh.receiveShadow = true;
+
+        absenMesh.userData = { 
+          ...d, type: 'Absen', val: d.absen, pct: (absenPct * 100).toFixed(1),
+          baseY: absenH / 2, baseScaleY: 1
+        };
+
+        semGroup.add(absenMesh);
+        barObjects.push(absenMesh);
+
+        barGroup.add(semGroup);
+      });
+    }
+
+    function onMouseMove(event) {
+      const container = document.getElementById('three-container');
+      const rect = container.getBoundingClientRect();
+
+      mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(barObjects);
+      const tooltip = document.getElementById('tooltip3d');
+
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+
+        if (intersectedBar !== object) {
+          if (intersectedBar) resetBarEffect(intersectedBar);
+
+          intersectedBar = object;
+          // Efek Hover Balok: Membesar sedikit & Glow
+          intersectedBar.scale.set(1.15, 1.05, 1.15);
+          intersectedBar.material.emissiveIntensity = 0.5;
+        }
+
+        const data = object.userData;
+        document.getElementById('tooltipSem').innerText = data.semester;
+        document.getElementById('tooltipBadge').innerText = data.type;
+        document.getElementById('tooltipBadge').className = data.type === 'Hadir' ? 
+          'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700' : 
+          'px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700';
+
+        document.getElementById('tooltipVal').innerText = `${data.val} orang`;
+        document.getElementById('tooltipTotal').innerText = `${data.total} orang`;
+        document.getElementById('tooltipPct').innerText = `${data.pct}%`;
+
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${event.clientX - rect.left + 15}px`;
+        tooltip.style.top = `${event.clientY - rect.top + 15}px`;
+
+      } else {
+        if (intersectedBar) resetBarEffect(intersectedBar);
+        intersectedBar = null;
+        tooltip.style.display = 'none';
+      }
+    }
+
+    function resetBarEffect(bar) {
+      bar.scale.set(1, 1, 1);
+      bar.material.emissiveIntensity = 0.15;
+    }
+
+    function updateDashboard(sem) {
+      let data = sem === "ALL" ? rawData : rawData.filter(d => d.semester === sem);
+      const totalM = data.reduce((a, b) => a + b.total, 0);
+      const totalH = data.reduce((a, b) => a + b.hadir, 0);
+      const totalA = data.reduce((a, b) => a + b.absen, 0);
+
+      document.getElementById('kpiTotal').innerText = totalM;
+      document.getElementById('kpiHadir').innerText = totalH;
+      document.getElementById('kpiHadirPct').innerText = totalM ? `${((totalH / totalM) * 100).toFixed(1)}% Partisipasi` : '0%';
+      document.getElementById('kpiAbsen').innerText = totalA;
+      document.getElementById('kpiAbsenPct').innerText = totalM ? `${((totalA / totalM) * 100).toFixed(1)}% Ketidakhadiran` : '0%';
+      document.getElementById('kpiAvg').innerText = totalM ? `${((totalH / totalM) * 100).toFixed(1)}%` : '0%';
+
+      barObjects.forEach(bar => {
+        if (sem !== "ALL" && bar.userData.semester === sem) {
+          bar.scale.set(1.15, 1.05, 1.15);
+          bar.material.emissiveIntensity = 0.5;
+        } else {
+          resetBarEffect(bar);
+        }
+      });
+
+      renderTable(sem);
+    }
+
+    function renderTable(filter) {
+      const tbody = document.getElementById('dataTableBody');
+      tbody.innerHTML = '';
+      const displayData = filter === "ALL" ? rawData : rawData.filter(d => d.semester === filter);
+
+      displayData.forEach(d => {
+        const pct = ((d.hadir / d.total) * 100).toFixed(1);
+        let badge = '';
+
+        if (pct >= 80) badge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">Sangat Tinggi</span>';
+        else if (pct >= 40) badge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Sedang</span>';
+        else badge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">Kritis</span>';
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="p-3 font-bold text-slate-800">${d.semester}</td>
+            <td class="p-3 text-center font-medium">${d.total}</td>
+            <td class="p-3 text-center text-emerald-600 font-bold">${d.hadir}</td>
+            <td class="p-3 text-center text-rose-600 font-bold">${d.absen}</td>
+            <td class="p-3 text-center font-extrabold text-sky-600">${pct}%</td>
+            <td class="p-3 text-center">${badge}</td>
+          </tr>
+        `;
+      });
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('three-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+  </script>
+</body>
+</html>
