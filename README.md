@@ -7,7 +7,7 @@ Tujuan utamanya adalah untuk memberikan gambaran visual mengenai tingkat partisi
 
 ## 🚀 Live Demo
 Anda dapat melihat dashboard yang sudah di-deploy melalui GitHub Pages di sini:
-👉 **[https://usernamemu.github.io/nama-repositori-kalian/](Link GitHub Pages Kalian Disini)**
+👉 **https://imtiyazkhaldaakifah.github.io/Dashboard-Tahfidz-TI-2022/**
 
 ## 🛠️ Teknologi yang Digunakan
 *   **HTML5 & CSS3** (Struktur dan Styling)
